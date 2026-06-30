@@ -40,10 +40,10 @@ variable "ami_id" {
   default     = "ami-0532913178263be11"
 }
 
-variable "key_pair_name" {
-  description = "Name of an existing EC2 key pair for SSH access (leave empty to skip)"
+variable "public_key_path" {
+  description = "Path to the SSH public key file to upload as an EC2 Key Pair"
   type        = string
-  default     = ""
+  default     = "~/.ssh/id_rsa.pub"
 }
 
 variable "nlb_listener_port" {

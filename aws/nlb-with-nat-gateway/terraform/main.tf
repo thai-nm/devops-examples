@@ -105,13 +105,21 @@ resource "aws_security_group" "vm" {
   tags = { Name = "vntechies-prd-sg-vm" }
 }
 
+# SSH Key Pair
+resource "aws_key_pair" "deployer" {
+  key_name   = "vntechies-prd-key"
+  public_key = file(var.public_key_path)
+
+  tags = { Name = "vntechies-prd-key" }
+}
+
 # EC2 Instances (private subnet, no public IP)
 resource "aws_instance" "backend001" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [aws_security_group.vm.id]
-  key_name               = var.key_pair_name != "" ? var.key_pair_name : null
+  key_name               = aws_key_pair.deployer.key_name
 
   tags = { Name = "vntechies-prd-vm-backend-001" }
 }
@@ -121,7 +129,7 @@ resource "aws_instance" "backend002" {
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [aws_security_group.vm.id]
-  key_name               = var.key_pair_name != "" ? var.key_pair_name : null
+  key_name               = aws_key_pair.deployer.key_name
 
   tags = { Name = "vntechies-prd-vm-backend-002" }
 }
