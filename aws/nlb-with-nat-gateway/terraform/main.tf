@@ -4,7 +4,7 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "nlb-nat-vpc" }
+  tags = { Name = "vntechies-prd-vpc" }
 }
 
 # Subnets
@@ -14,7 +14,7 @@ resource "aws_subnet" "public" {
   availability_zone       = var.availability_zone
   map_public_ip_on_launch = false
 
-  tags = { Name = "nlb-nat-public" }
+  tags = { Name = "vntechies-prd-public" }
 }
 
 resource "aws_subnet" "private" {
@@ -22,28 +22,28 @@ resource "aws_subnet" "private" {
   cidr_block        = var.private_subnet_cidr
   availability_zone = var.availability_zone
 
-  tags = { Name = "nlb-nat-private" }
+  tags = { Name = "vntechies-prd-private" }
 }
 
 # Internet Gateway
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
-  tags = { Name = "nlb-nat-igw" }
+  tags = { Name = "vntechies-prd-igw" }
 }
 
 # Elastic IP + NAT Gateway (in public subnet)
 resource "aws_eip" "nat" {
   domain = "vpc"
 
-  tags = { Name = "nlb-nat-eip" }
+  tags = { Name = "vntechies-prd-eip-natgw" }
 }
 
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public.id
 
-  tags = { Name = "nlb-nat-natgw" }
+  tags = { Name = "vntechies-prd-natgw" }
 
   depends_on = [aws_internet_gateway.main]
 }
@@ -57,7 +57,7 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.main.id
   }
 
-  tags = { Name = "nlb-nat-public-rt" }
+  tags = { Name = "vntechies-prd-rtb-pub" }
 }
 
 resource "aws_route_table" "private" {
@@ -68,7 +68,7 @@ resource "aws_route_table" "private" {
     nat_gateway_id = aws_nat_gateway.main.id
   }
 
-  tags = { Name = "nlb-nat-private-rt" }
+  tags = { Name = "vntechies-prd-rtb-pri" }
 }
 
 resource "aws_route_table_association" "public" {
@@ -81,9 +81,9 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# Security Group for VMs
+# # Security Group for VMs
 resource "aws_security_group" "vm" {
-  name        = "nlb-nat-vm-sg"
+  name        = "vntechies-prd-sg-vm"
   description = "Allow inbound from NLB subnet and client CIDR; allow all outbound"
   vpc_id      = aws_vpc.main.id
 
@@ -95,14 +95,6 @@ resource "aws_security_group" "vm" {
     cidr_blocks = [var.public_subnet_cidr]
   }
 
-  ingress {
-    description = "From client CIDR"
-    from_port   = var.nlb_listener_port
-    to_port     = var.nlb_listener_port
-    protocol    = "tcp"
-    cidr_blocks = [var.client_cidr]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -110,43 +102,43 @@ resource "aws_security_group" "vm" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "nlb-nat-vm-sg" }
+  tags = { Name = "vntechies-prd-sg-vm" }
 }
 
 # EC2 Instances (private subnet, no public IP)
-resource "aws_instance" "vm1" {
+resource "aws_instance" "backend001" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [aws_security_group.vm.id]
   key_name               = var.key_pair_name != "" ? var.key_pair_name : null
 
-  tags = { Name = "nlb-nat-vm1" }
+  tags = { Name = "vntechies-prd-vm-backend-001" }
 }
 
-resource "aws_instance" "vm2" {
+resource "aws_instance" "backend002" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [aws_security_group.vm.id]
   key_name               = var.key_pair_name != "" ? var.key_pair_name : null
 
-  tags = { Name = "nlb-nat-vm2" }
+  tags = { Name = "vntechies-prd-vm-backend-002" }
 }
 
 # Network Load Balancer (internet-facing, in public subnet)
 resource "aws_lb" "nlb" {
-  name               = "nlb-nat-nlb"
+  name               = "vntechies-prd-nlb-backend"
   load_balancer_type = "network"
   internal           = false
   subnets            = [aws_subnet.public.id]
 
-  tags = { Name = "nlb-nat-nlb" }
+  tags = { Name = "vntechies-prd-nlb-backend" }
 }
 
 # Target Group (instance type)
-resource "aws_lb_target_group" "vms" {
-  name        = "nlb-nat-tg"
+resource "aws_lb_target_group" "backend" {
+  name        = "vntechies-prd-tg-backend"
   port        = var.nlb_listener_port
   protocol    = "TCP"
   target_type = "instance"
@@ -157,18 +149,18 @@ resource "aws_lb_target_group" "vms" {
     port     = "traffic-port"
   }
 
-  tags = { Name = "nlb-nat-tg" }
+  tags = { Name = "vntechies-prd-tg-backend" }
 }
 
-resource "aws_lb_target_group_attachment" "vm1" {
-  target_group_arn = aws_lb_target_group.vms.arn
-  target_id        = aws_instance.vm1.id
+resource "aws_lb_target_group_attachment" "backend001" {
+  target_group_arn = aws_lb_target_group.backend.arn
+  target_id        = aws_instance.backend001.id
   port             = var.nlb_listener_port
 }
 
-resource "aws_lb_target_group_attachment" "vm2" {
-  target_group_arn = aws_lb_target_group.vms.arn
-  target_id        = aws_instance.vm2.id
+resource "aws_lb_target_group_attachment" "backend002" {
+  target_group_arn = aws_lb_target_group.backend.arn
+  target_id        = aws_instance.backend002.id
   port             = var.nlb_listener_port
 }
 
@@ -180,6 +172,6 @@ resource "aws_lb_listener" "tcp" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.vms.arn
+    target_group_arn = aws_lb_target_group.backend.arn
   }
 }

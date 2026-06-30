@@ -97,6 +97,22 @@ terraform apply \
 
 ---
 
+## Infrastructure cost
+
+The following components incur AWS charges while running:
+
+| Component | Billing dimension |
+|-----------|-------------------|
+| **NAT Gateway** | Hourly + per-GB data processed |
+| **Elastic IP** (on NAT Gateway) | Hourly when associated; idle EIPs also billed |
+| **Network Load Balancer** | Hourly + LCU (Load Balancer Capacity Units) |
+| **EC2 instances** (×2) | Hourly per instance (varies by type) |
+| **Data transfer** | Outbound traffic to the internet |
+
+> Run `terraform destroy` as soon as you are done. The NAT Gateway and NLB accrue charges even when no traffic is flowing.
+
+---
+
 ## Clean up
 
 ```bash
